@@ -70,13 +70,14 @@ var Logic = (function () {
   const liveLogs = store => store.rows('Loglar').filter(l => !bool(l.silindi));
   const activeLogOf = (store, email) => liveLogs(store).find(l => norm(l.personel) === email && !l.bitis) || null;
 
-  // Proje / birim seçimini doğrular. Günlük işte proje boştur, birim her zaman zorunludur.
+  // Proje / birim seçimini doğrular. Projeli kayıtta birim zorunludur; Günlük İş birimsiz girilebilir.
   function checkRefs(store, projeId, birimId, existing) {
     if (projeId) {
       const p = find(store, 'Projeler', projeId) || fail('Seçilen proje bulunamadı.');
       if (bool(p.silindi) && !(existing && existing.projeId === projeId)) fail('Silinmiş bir projeye kayıt girilemez.');
+      required(birimId, 'Birim');
     }
-    required(birimId, 'Birim');
+    if (!birimId) return;
     const b = find(store, 'Birimler', birimId) || fail('Seçilen birim bulunamadı.');
     if (bool(b.silindi) && !(existing && existing.birimId === birimId)) fail('Silinmiş bir birime kayıt girilemez.');
   }
@@ -133,14 +134,18 @@ var Logic = (function () {
       }
       const baslangic = required(p.baslangic, 'Başlangıç');
       if (!DT.test(baslangic)) fail('Başlangıç zamanı geçersiz.');
-      const devamEden = existing && !existing.bitis;
+      // Bitiş boş bırakılırsa kayıt açık kalır (devam eden çalışma); bitiş sonradan düzenleyerek girilir.
       const bitis = text(p.bitis);
-      if (!bitis && !devamEden) fail('Bitiş zamanı zorunludur.');
       if (bitis) {
         if (!DT.test(bitis)) fail('Bitiş zamanı geçersiz.');
         if (bitis <= baslangic) fail('Bitiş, başlangıçtan sonra olmalıdır.');
         if (minutesBetween(baslangic, bitis) > MAX_LOG_DK) fail('Tek bir kayıt 24 saatten uzun olamaz.');
-      } else if (baslangic > now) fail('Devam eden bir çalışmanın başlangıcı ileri bir zaman olamaz.');
+      } else {
+        if (baslangic > now) fail('Bitiş saati girilmeyen (açık) bir kaydın başlangıcı ileri bir zaman olamaz.');
+        const acik = activeLogOf(store, personel);
+        if (acik && (!existing || acik.id !== existing.id))
+          fail('Bu personelin bitiş saati girilmemiş açık bir kaydı zaten var (' + trDT(acik.baslangic) + '). Önce onun bitiş saatini girin.');
+      }
 
       const projeId = text(p.projeId), birimId = text(p.birimId);
       checkRefs(store, projeId, birimId, existing);

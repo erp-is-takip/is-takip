@@ -20,14 +20,14 @@ serve.ps1                    → yerel geliştirme sunucusu (Windows)
 | Ekran | Kim görür | Özet |
 |---|---|---|
 | Dashboard | Herkes | Kişiye özel: kendisine atanmış proje/alt projeler öncelik sırasıyla (sürükle-bırak / oklarla sıralanır), canlı “Başlat / Bitir”, bugün-hafta-ay toplamları |
-| İş Logu | Herkes | Sonradan kayıt ekleme/düzenleme. Personel oturum açan kişi olarak gelir; normal kullanıcı değiştiremez. Proje seçilince Birim projeden dolar (değiştirilebilir), “Günlük İş” seçilince boş gelir. Aynı kişinin kayıtları çakışamaz. |
+| İş Logu | Herkes | Sonradan kayıt ekleme/düzenleme. Personel oturum açan kişi olarak gelir; normal kullanıcı değiştiremez. Proje seçilince Birim projeden dolar (değiştirilebilir), “Günlük İş” seçilince boş gelir (Günlük İş birimsiz girilebilir). Bitiş saati boş bırakılırsa kayıt açık kalır, iş bitince “Düzenle” ile girilir (kişi başına tek açık kayıt). Aynı kişinin kayıtları çakışamaz. |
 | Projeler | Herkes | Otomatik kod (PRJ-000001…), alt proje, “Ait Olduğu Birim”, durum, atama (yönetici herkese, kullanıcı yalnız kendine), soft delete (“Silindi” etiketi; kullanıcı yalnız kendi eklediğini, yönetici hepsini siler; yönetici geri alabilir) |
 | Raporlar | Herkes (normal kullanıcı yalnız kendi verisi) | İsteğe bağlı dönem (bugün, hafta, ay, çeyrek, yıl, özel), Birim / Proje / Personel bazında Geliştirme-Günlük İş kırılımı, detay, Excel (CSV) çıktısı |
-| Birimler | Yönetici | Birim ekle/düzenle/sil (soft delete) |
+| Birimler / İş Başlıkları | Yönetici | Birim / iş başlığı ekle/düzenle/sil (soft delete) |
 | Kullanıcılar | Yönetici | İzinli e-postalar, “Yönetici” yetkisi, pasifleştirme |
 | API Ayarları | Yönetici | Sunucu URL / Client ID, bağlantı testi, Google E-Tablo bağlantısı |
 
-**Talep türü:** Projeye bağlı kayıt = *Geliştirme*, projesiz kayıt = *Günlük İş* (birim her kayıtta ayrıca seçilir).
+**Talep türü:** Projeye bağlı kayıt = *Geliştirme*, projesiz kayıt = *Günlük İş* (birim her kayıtta isteğe bağlı olarak ayrıca seçilir; raporlarda “Birimsiz” görünür).
 **Canlı bildirim:** Çalışırken başka işe “Başlat” denirse önceki çalışma o anda otomatik kapanır; böylece ara verip başka işe geçme ayrı kayıtlar olarak tutulur.
 **Veri gizliliği:** E-Tablo yalnızca sahibine ve *Yönetici* yetkili kullanıcılara paylaşılır; yetki değiştikçe paylaşım otomatik güncellenir. Diğer kullanıcılar veriye yalnızca API üzerinden, kendi yetkileri kadar erişir.
 

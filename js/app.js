@@ -37,7 +37,7 @@
   const me = () => S.boot.me;
   const proje = id => S.boot.projeler.find(p => p.id === id);
   const birim = id => S.boot.birimler.find(b => b.id === id);
-  const birimAd = id => (birim(id) || {}).ad || '—';
+  const birimAd = id => (id ? (birim(id) || {}).ad || '—' : 'Birimsiz');
   const kisiAd = email => (S.boot.users.find(u => u.email === email) || {}).ad || email;
   function projeAd(id) {
     if (!id) return 'Günlük İş';
@@ -63,11 +63,19 @@
     return opt('', placeholder, sel) + list.map(b => opt(b.id, b.ad, sel)).join('');
   }
   // Proje seçilince birim projeye bağlı birimden dolar (değiştirilebilir); Günlük İş seçilince boşalır.
+  // Projeli kayıtta birim zorunlu, Günlük İş'te isteğe bağlıdır (birimsiz girilebilir).
   function bindProjeBirim(form) {
+    const syncRequired = () => {
+      const projeli = !!form.projeId.value;
+      form.birimId.required = projeli;
+      form.birimId.options[0].textContent = projeli ? 'Birim seçin…' : '— Birimsiz —';
+    };
     form.projeId.addEventListener('change', () => {
       const p = proje(form.projeId.value);
       form.birimId.value = p && birim(p.birimId) && !birim(p.birimId).silindi ? p.birimId : '';
+      syncRequired();
     });
+    syncRequired();
   }
 
   // ---------- bildirim, modal, hata ----------
@@ -150,7 +158,7 @@
     log: { title: 'İş Logu', icon: 'log', render: pageLog },
     projeler: { title: 'Projeler', icon: 'proj', render: pageProjeler },
     raporlar: { title: 'Raporlar', icon: 'rapor', render: pageRaporlar },
-    birimler: { title: 'Birimler', icon: 'birim', render: pageBirimler, admin: true },
+    birimler: { title: 'Birimler / İş Başlıkları', icon: 'birim', render: pageBirimler, admin: true },
     kullanicilar: { title: 'Kullanıcılar', icon: 'users', render: pageKullanicilar, admin: true },
     api: { title: 'API Ayarları', icon: 'api', render: pageApi, admin: true }
   };
@@ -269,7 +277,7 @@
             <hr><h3>Başka bir işe geç</h3>` : '<p class="muted small">İşe başladığınızda bildirin; bitirdiğinizde “Bitir” deyin. Ara verip başka işe geçerseniz önceki çalışma otomatik kapanır.</p>'}
           <form id="startForm" class="stack">
             <label>Proje / İş<select name="projeId">${projeOptions('')}</select></label>
-            <label>Birim<select name="birimId" required>${birimOptions('')}</select></label>
+            <label>Birim<select name="birimId">${birimOptions('')}</select></label>
             <label>Açıklama<input name="aciklama" placeholder="Ne üzerinde çalışıyorsunuz?"></label>
             <button class="btn primary block">${aktif ? '⇄ Bu işe geç' : '▶ Çalışmaya başla'}</button>
           </form>
@@ -367,16 +375,16 @@
         <form id="logForm" class="form-grid">
           <label>Personel<select name="personel" ${isAdmin() ? '' : 'disabled title="Yalnızca kendi adınıza kayıt girebilirsiniz"'}>${personelSel}</select></label>
           <label class="span-2">Proje / İş<select name="projeId">${projeOptions(f.projeId, e && e.projeId)}</select></label>
-          <label>Birim<select name="birimId" required>${birimOptions(f.birimId)}</select></label>
+          <label>Birim<select name="birimId">${birimOptions(f.birimId)}</select></label>
           <label>Tarih<input type="date" name="tarih" value="${f.tarih}" required></label>
           <label>Başlangıç<input type="time" name="bas" value="${f.bas}" required></label>
-          <label>Bitiş<input type="time" name="bit" value="${f.bit}" ${e && e.aktif ? 'placeholder="devam ediyor"' : 'required'}></label>
+          <label>Bitiş <small class="muted">(iş bitince girilebilir)</small><input type="time" name="bit" value="${f.bit}"></label>
           <label>Süre<output id="sureOut" class="output">—</output></label>
           <label class="full">Açıklama<textarea name="aciklama" rows="2" placeholder="Yapılan iş">${esc(f.aciklama)}</textarea></label>
           <div class="full form-actions">
             <button class="btn primary" type="submit">${e ? 'Güncelle' : 'Kaydet'}</button>
             ${e ? '<button type="button" class="btn" id="cancelEdit">Vazgeç</button>' : '<button type="button" class="btn" id="startNow" title="Seçili proje ve birimle canlı çalışma başlatır (kendi adınıza)">▶ Şimdi başlat (canlı)</button>'}
-            <span class="hint">Bitiş saati başlangıçtan küçükse ertesi güne sarktığı kabul edilir. Aynı kişinin kayıtları çakışamaz.</span>
+            <span class="hint">Bitiş boş bırakılırsa kayıt açık kalır; iş bitince kaydı “Düzenle” ile açıp bitiş saatini girin. Bitiş başlangıçtan küçükse ertesi gün sayılır. Aynı kişinin kayıtları çakışamaz.</span>
           </div>
         </form>
       </section>
@@ -402,6 +410,7 @@
     const out = v.querySelector('#sureOut');
     const calc = () => {
       const { tarih, bas, bit } = formData(form);
+      if (tarih && bas && !bit) { out.textContent = 'Açık (bitiş girilmedi)'; return; }
       if (!tarih || !bas || !bit || bit === bas) { out.textContent = '—'; return; }
       const end = (bit < bas ? addDays(tarih, 1) : tarih) + 'T' + bit;
       out.textContent = fmtSure(diffMin(tarih + 'T' + bas, end)) + (bit < bas ? ' (ertesi gün)' : '');
@@ -426,7 +435,7 @@
     if (cancel) cancel.onclick = () => { S.editLog = null; render(); };
     const startNow = v.querySelector('#startNow');
     if (startNow) startNow.onclick = act(async () => {
-      if (!form.birimId.value) { form.birimId.reportValidity(); throw new Error('Canlı başlatmak için birim seçin.'); }
+      if (!form.birimId.reportValidity()) return;
       const fd = formData(form);
       await m('timer.start', { projeId: fd.projeId, birimId: fd.birimId, aciklama: fd.aciklama }, 'Çalışma başladı.');
       render();
@@ -684,16 +693,16 @@
     const list = S.boot.birimler.slice().sort((a, b) => (a.silindi - b.silindi) || trCmp(a.ad, b.ad));
     const projeSay = id => S.boot.projeler.filter(p => p.birimId === id && !p.silindi).length;
     v.innerHTML = `<section class="card">
-      <div class="card-head"><h2>Birimler</h2><button class="btn primary" id="newBirim">+ Yeni birim</button></div>
-      <p class="muted small">Talep eden / hizmet verilen birimler. Projeler bir birime bağlanır; günlük işlerde birim her kayıtta ayrıca seçilir.</p>
+      <div class="card-head"><h2>Birimler / İş Başlıkları</h2><button class="btn primary" id="newBirim">+ Yeni birim / iş başlığı</button></div>
+      <p class="muted small">Talep eden / hizmet verilen birimler ve iş başlıkları. Projeler bir birime bağlanır; günlük işlerde birim isteğe bağlı olarak her kayıtta ayrıca seçilir.</p>
       ${list.length ? `<div class="table-wrap"><table class="table">
-        <thead><tr><th>Birim</th><th>Açıklama</th><th class="num">Aktif proje</th><th></th></tr></thead>
+        <thead><tr><th>Birim / İş Başlığı</th><th>Açıklama</th><th class="num">Aktif proje</th><th></th></tr></thead>
         <tbody>${list.map(b => `<tr class="${b.silindi ? 'deleted' : ''}"><td><b>${esc(b.ad)}</b>${b.silindi ? ' <span class="badge red">Silindi</span>' : ''}</td><td>${esc(b.aciklama)}</td><td class="num">${projeSay(b.id)}</td>
           <td class="row-actions">${b.silindi ? '' : `<button class="btn small ghost" data-edit="${b.id}">Düzenle</button><button class="btn small ghost danger-text" data-del="${b.id}">Sil</button>`}</td></tr>`).join('')}</tbody>
       </table></div>` : '<div class="empty">Henüz birim tanımlanmadı.</div>'}
     </section>`;
-    const edit = b => modal(b ? 'Birimi düzenle' : 'Yeni birim', `
-      <label>Birim adı<input name="ad" required maxlength="120" value="${esc(b ? b.ad : '')}"></label>
+    const edit = b => modal(b ? 'Birim / iş başlığını düzenle' : 'Yeni birim / iş başlığı', `
+      <label>Ad<input name="ad" required maxlength="120" value="${esc(b ? b.ad : '')}"></label>
       <label>Açıklama<input name="aciklama" value="${esc(b ? b.aciklama : '')}"></label>`,
     async fd => { await m('birimler.save', { id: b && b.id, ...fd }, b ? 'Birim güncellendi.' : 'Birim eklendi.'); render(); });
     v.querySelector('#newBirim').onclick = () => edit(null);
@@ -711,7 +720,7 @@
     const list = S.boot.users.slice().sort((a, b) => (b.aktif - a.aktif) || trCmp(a.ad, b.ad));
     v.innerHTML = `<section class="card">
       <div class="card-head"><h2>Kullanıcılar</h2><button class="btn primary" id="newUser">+ Kullanıcı ekle</button></div>
-      <p class="muted small">Yalnızca bu listedeki aktif e-posta adresleri Google hesabıyla giriş yapabilir. “Yönetici” yetkisi; Birimler, Kullanıcılar ve API Ayarları ekranlarını, tüm personelin kayıtlarını ve Google E-Tablo veri sayfalarını açar.</p>
+      <p class="muted small">Yalnızca bu listedeki aktif e-posta adresleri Google hesabıyla giriş yapabilir. “Yönetici” yetkisi; Birimler / İş Başlıkları, Kullanıcılar ve API Ayarları ekranlarını, tüm personelin kayıtlarını ve Google E-Tablo veri sayfalarını açar.</p>
       <div class="table-wrap"><table class="table">
         <thead><tr><th>Ad Soyad</th><th>E-posta</th><th>Yönetici</th><th>Durum</th><th></th></tr></thead>
         <tbody>${list.map(u => {
